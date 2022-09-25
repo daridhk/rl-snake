@@ -5,10 +5,10 @@ import torch.nn.functional as F
 import os
 
 class Linear_QNet(nn.Module):
-    def __init__(self,input_size,hidden_size,output_size):
+    def __init__(self,input_size,hidden_size, output_size):
         super().__init__()
         self.linear1 = nn.Linear(input_size,hidden_size)
-        self.linear2 = nn.Linear(hidden_size,output_size)
+        self.linear2 = nn.Linear(hidden_size, output_size)
         # self.linear1 = nn.Linear(input_size, hidden_size).cuda()
         # self.linear2 = nn.Linear(hidden_size, output_size).cuda()
 
@@ -22,6 +22,33 @@ class Linear_QNet(nn.Module):
         torch.save(self.state_dict(), file_name)
 
     def load(self, file_name='model.pth'):
+        return
+        model_folder_path = '.'
+        file_name = os.path.join(model_folder_path, file_name)
+        if os.path.exists(file_name):
+            self.load_state_dict(torch.load(file_name))
+
+class Linear2_QNet(nn.Module):
+    def __init__(self,input_size,hidden_size1, hidden_size2, output_size):
+        super().__init__()
+        self.linear1 = nn.Linear(input_size,hidden_size1)
+        self.linear2 = nn.Linear(hidden_size1, hidden_size2)
+        self.linear3 = nn.Linear(hidden_size2, output_size)
+        # self.linear1 = nn.Linear(input_size, hidden_size).cuda()
+        # self.linear2 = nn.Linear(hidden_size, output_size).cuda()
+
+    def forward(self, x):
+        x = F.relu(self.linear1(x))
+        x = F.relu(self.linear2(x))
+        x = self.linear3(x)
+        return x
+    def save(self, file_name='model.pth'):
+        model_folder_path = '.'
+        file_name = os.path.join(model_folder_path, file_name)
+        torch.save(self.state_dict(), file_name)
+
+    def load(self, file_name='model.pth'):
+        return
         model_folder_path = '.'
         file_name = os.path.join(model_folder_path, file_name)
         if os.path.exists(file_name):

@@ -12,7 +12,8 @@ font = pygame.font.Font('freesansbold.ttf',25)
 # Play(action) -> Direction
 # Game_Iteration
 # is_collision
-
+REWARD_COLLISION = -100
+REWARD_FOOD = 10
 
 class Direction(Enum):
     RIGHT = 1
@@ -23,7 +24,8 @@ class Direction(Enum):
 Point = namedtuple('Point','x , y')
 
 BLOCK_SIZE=20
-SPEED = 40
+# SPEED = 40
+SPEED = 0
 WHITE = (255,255,255)
 RED = (200,0,0)
 BLUE1 = (0,0,255)
@@ -81,12 +83,12 @@ class SnakeGameAI:
         game_over = False 
         if(self.is_collision() or self.frame_iteration > 100*len(self.snake) ):
             game_over=True
-            reward = -10
+            reward = REWARD_COLLISION
             return reward,game_over,self.score
         # 4. Place new Food or just move
         if(self.head == self.food):
             self.score+=1
-            reward=10
+            reward= REWARD_FOOD
             self._place__food()
             
         else:
@@ -110,9 +112,10 @@ class SnakeGameAI:
                 pygame.draw.rect(self.display, BLUE2, pygame.Rect(pt.x + 4, pt.y + 4, 12, 12))
 
         pygame.draw.rect(self.display,RED,pygame.Rect(self.food.x,self.food.y,BLOCK_SIZE,BLOCK_SIZE))
-        # text = font.render("Score: "+str(self.score),True,WHITE)
-        text = font.render("Score: " + str(self.score)+"   High: "+ str(self.high_score), True, WHITE)
+        text = font.render("Score: " + str(self.score), True, WHITE)
         self.display.blit(text,[0,0])
+        text = font.render("High: " + str(self.high_score), True, WHITE)
+        self.display.blit(text,[150,0])
         pygame.display.flip()
 
     def _move(self,action):
@@ -145,12 +148,12 @@ class SnakeGameAI:
             y-=BLOCK_SIZE
         self.head = Point(x,y)
 
-    def is_collision(self,pt=None):
-        if(pt is None):
+    def is_collision(self, pt=None):
+        if pt is None:
             pt = self.head
-        #hit boundary
-        if(pt.x>self.w-BLOCK_SIZE or pt.x<0 or pt.y>self.h - BLOCK_SIZE or pt.y<0):
+        # hit boundary
+        if pt.x > self.w - BLOCK_SIZE or pt.x < 0 or pt.y > self.h - BLOCK_SIZE or pt.y < 0:
             return True
-        if(pt in self.snake[1:]):
+        if pt in self.snake[1:]:
             return True
         return False
