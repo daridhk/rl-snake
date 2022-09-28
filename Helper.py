@@ -1,11 +1,12 @@
-import matplotlib.pyplot as plt 
-from IPython import display
+# import matplotlib.pyplot as plt
+# from IPython import display
 
-plt.ion()
+# plt.ion()
 
 def plot(scores, mean_scores):
-    display.clear_output(wait=True)
-    display.display(plt.gcf())
+    # display.clear_output(wait=True)
+    # display.display(plt.gcf())
+    # matplotlib.use('tkagg')
     plt.clf()
     plt.title("Training...")
     plt.xlabel('Number of Games')

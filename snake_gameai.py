@@ -12,7 +12,7 @@ font = pygame.font.Font('freesansbold.ttf',25)
 # Play(action) -> Direction
 # Game_Iteration
 # is_collision
-REWARD_COLLISION = -100
+REWARD_COLLISION = -20
 REWARD_FOOD = 10
 
 class Direction(Enum):
@@ -35,7 +35,9 @@ YELLOW1 = (255,255,0)
 YELLOW2 = (200,200,0)
 
 class SnakeGameAI:
-    def __init__(self,w=640,h=480):
+    def __init__(self,w=400,h=400):
+    #    def __init__(self, w=640, h=480):
+
         self.w=w
         self.h=h
         #init display
@@ -95,7 +97,7 @@ class SnakeGameAI:
             self.snake.pop()
         
         # 5. Update UI and clock
-        self._update_ui()
+        # self._update_ui()
         self.clock.tick(SPEED)
         # 6. Return game Over and Display Score
         
