@@ -4,6 +4,48 @@ import torch.optim as optim
 import torch.nn.functional as F
 import os
 
+
+CHANNEL1 = 3
+KERNEL1 = 3
+CHANNEL2 = 6
+KERNEL2 = 5
+CHANNEL3 = 12
+
+class Conv_QNet(nn.Module):
+    def __init__(self,input_size,hidden_size, output_size):
+        super().__init__()
+        self.conv1 = nn.Conv2d(CHANNEL1, CHANNEL2, KERNEL1)
+        self.conv2 = nn.Conv2d(CHANNEL2, CHANNEL3, KERNEL2)
+
+        self.linear1 = nn.Linear(input_size,hidden_size)
+        self.linear2 = nn.Linear(hidden_size, output_size)
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = F.relu(x)
+        x = F.max_pool2d(x, 2)
+
+        x = self.conv2(x)
+        x = F.relu(x)
+        x = F.max_pool2d(x, 2)
+
+        x = torch.flatten(x, 1)
+
+        x = F.relu(self.linear1(x))
+        x = self.linear2(x)
+        return x
+
+    def save(self, file_name='model.pth'):
+        model_folder_path = '.'
+        file_name = os.path.join(model_folder_path, file_name)
+        torch.save(self.state_dict(), file_name)
+
+    def load(self, file_name='model.pth'):
+        model_folder_path = '.'
+        file_name = os.path.join(model_folder_path, file_name)
+        if os.path.exists(file_name):
+            self.load_state_dict(torch.load(file_name))
+
 class Linear_QNet(nn.Module):
     def __init__(self,input_size,hidden_size, output_size):
         super().__init__()
@@ -22,7 +64,8 @@ class Linear_QNet(nn.Module):
         torch.save(self.state_dict(), file_name)
 
     def load(self, file_name='model.pth'):
-        return
+        # todo
+        # return
         model_folder_path = '.'
         file_name = os.path.join(model_folder_path, file_name)
         if os.path.exists(file_name):

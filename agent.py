@@ -3,7 +3,7 @@ import random
 import numpy as np
 from collections import deque
 from snake_gameai import SnakeGameAI,Direction,Point,BLOCK_SIZE
-from model import Linear_QNet,QTrainer
+from model import Linear_QNet,QTrainer, Conv_QNet
 from Helper import plot
 MAX_MEMORY = 100_000
 BATCH_SIZE = 1000
@@ -15,8 +15,9 @@ class Agent:
         self.epsilon = 0 # Randomness
         self.gamma = 0.9 # discount rate
         self.memory = deque(maxlen=MAX_MEMORY) # popleft()
+        self.model = Conv_QNet(7, 256, 3)
         # self.model = Linear_QNet(11,256,3)
-        self.model = Linear_QNet(7, 256, 3)
+        # self.model = Linear_QNet(7, 256, 3)
         # self.model = Linear_QNet(12, 256, 3)
         # self.model = Linear_QNet(12, 200, 200, 3)
         self.trainer = QTrainer(self.model,lr=LR,gamma=self.gamma)
@@ -36,6 +37,68 @@ class Agent:
     # food left,food right,
     # food up, food down]
     def get_state(self,game):
+        # return 3x22x22 tensor
+        # state = torch.zeros(3, 22, 22)
+        state = torch.rand(3, 22, 22)
+
+        head = game.snake[0]
+        point_l=Point(head.x - BLOCK_SIZE, head.y)
+        point_r=Point(head.x + BLOCK_SIZE, head.y)
+        point_u=Point(head.x, head.y - BLOCK_SIZE)
+        point_d=Point(head.x, head.y + BLOCK_SIZE)
+
+        dir_l = game.direction == Direction.LEFT
+        dir_r = game.direction == Direction.RIGHT
+        dir_u = game.direction == Direction.UP
+        dir_d = game.direction == Direction.DOWN
+
+        state = [
+            # Danger Straight
+            (dir_u and game.is_collision(point_u))or
+            (dir_d and game.is_collision(point_d))or
+            (dir_l and game.is_collision(point_l))or
+            (dir_r and game.is_collision(point_r)),
+
+            # Danger right
+            (dir_u and game.is_collision(point_r))or
+            (dir_d and game.is_collision(point_l))or
+            (dir_u and game.is_collision(point_u))or
+            (dir_d and game.is_collision(point_d)),
+
+            #Danger Left
+            (dir_u and game.is_collision(point_r))or
+            (dir_d and game.is_collision(point_l))or
+            (dir_r and game.is_collision(point_u))or
+            (dir_l and game.is_collision(point_d)),
+
+            #Food Straight
+            (dir_u and game.food.y < game.head.y) or
+            (dir_d and game.food.y > game.head.y) or
+            (dir_l and game.food.x < game.head.x) or
+            (dir_r and game.food.x > game.head.x),
+
+            # Food Straight even
+            (dir_u and game.food.y == game.head.y) or
+            (dir_d and game.food.y == game.head.y) or
+            (dir_l and game.food.x == game.head.x) or
+            (dir_r and game.food.x == game.head.x),
+
+            #Food Right
+            (dir_u and game.food.x > game.head.x) or
+            (dir_d and game.food.x < game.head.x) or
+            (dir_l and game.food.y > game.head.y) or
+            (dir_r and game.food.y < game.head.y),
+
+            # Food Right even
+            (dir_u and game.food.x == game.head.x) or
+            (dir_d and game.food.x == game.head.x) or
+            (dir_l and game.food.y == game.head.y) or
+            (dir_r and game.food.y == game.head.y)
+
+        ]
+        return np.array(state,dtype=int)
+
+    def get_state_7_vector(self,game):
         head = game.snake[0]
         point_l=Point(head.x - BLOCK_SIZE, head.y)
         point_r=Point(head.x + BLOCK_SIZE, head.y)
