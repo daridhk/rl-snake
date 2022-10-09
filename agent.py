@@ -9,15 +9,20 @@ MAX_MEMORY = 100_000
 BATCH_SIZE = 1000
 LR = 0.001
 
+do_conv = True
+do_train_only_success = True
 class Agent:
     def __init__(self):
         self.n_game = 0
         self.epsilon = 0 # Randomness
         self.gamma = 0.9 # discount rate
         self.memory = deque(maxlen=MAX_MEMORY) # popleft()
-        self.model = Conv_QNet(7, 256, 3)
+        if do_conv:
+            self.model = Conv_QNet(5*5*12, 24, 3)
+        else:
+            self.model = Linear_QNet(7, 256, 3)
         # self.model = Linear_QNet(11,256,3)
-        # self.model = Linear_QNet(7, 256, 3)
+
         # self.model = Linear_QNet(12, 256, 3)
         # self.model = Linear_QNet(12, 200, 200, 3)
         self.trainer = QTrainer(self.model,lr=LR,gamma=self.gamma)
@@ -28,75 +33,46 @@ class Agent:
         #     print(p.device,'',n)         
         # TODO: model,trainer
 
-    # state (11 Values)
-    #[ danger straight, danger right, danger left,
-    #   
-    # direction left, direction right,
-    # direction up, direction down
-    # 
-    # food left,food right,
-    # food up, food down]
+    def pos_to_int(self, pos):
+        return int(pos.x/BLOCK_SIZE) + 1, int(pos.y/BLOCK_SIZE) + 1
+
     def get_state(self,game):
+        # return self.get_state_conv(game)
+        if do_conv:
+            return self.get_state_conv(game)
+        else:
+            return self.get_state_7_vector(game)
+
+
+    def get_state_conv(self,game):
         # return 3x22x22 tensor
         # state = torch.zeros(3, 22, 22)
-        state = torch.rand(3, 22, 22)
+        state = np.zeros((3, 22, 22))
+        WALL = 0
+        HEAD = 1
+        FOOD = 2
 
-        head = game.snake[0]
-        point_l=Point(head.x - BLOCK_SIZE, head.y)
-        point_r=Point(head.x + BLOCK_SIZE, head.y)
-        point_u=Point(head.x, head.y - BLOCK_SIZE)
-        point_d=Point(head.x, head.y + BLOCK_SIZE)
+        for i in range(22):
+            state[WALL][0][i] = 1
+            state[WALL][21][i] = 1
+            state[WALL][i][0] = 1
+            state[WALL][i][21] = 1
 
-        dir_l = game.direction == Direction.LEFT
-        dir_r = game.direction == Direction.RIGHT
-        dir_u = game.direction == Direction.UP
-        dir_d = game.direction == Direction.DOWN
+        # neck to tail
+        for body in game.snake[1:]:
+            x, y = self.pos_to_int(body)
+            state[WALL][y][x] = 1
 
-        state = [
-            # Danger Straight
-            (dir_u and game.is_collision(point_u))or
-            (dir_d and game.is_collision(point_d))or
-            (dir_l and game.is_collision(point_l))or
-            (dir_r and game.is_collision(point_r)),
+        # head and neck
+        for head in game.snake[:2]:
+            x, y = self.pos_to_int(head)
+            state[HEAD][y][x] = 1
 
-            # Danger right
-            (dir_u and game.is_collision(point_r))or
-            (dir_d and game.is_collision(point_l))or
-            (dir_u and game.is_collision(point_u))or
-            (dir_d and game.is_collision(point_d)),
+        x, y = self.pos_to_int(game.food)
+        state[FOOD][y][x] = 1
 
-            #Danger Left
-            (dir_u and game.is_collision(point_r))or
-            (dir_d and game.is_collision(point_l))or
-            (dir_r and game.is_collision(point_u))or
-            (dir_l and game.is_collision(point_d)),
+        return state
 
-            #Food Straight
-            (dir_u and game.food.y < game.head.y) or
-            (dir_d and game.food.y > game.head.y) or
-            (dir_l and game.food.x < game.head.x) or
-            (dir_r and game.food.x > game.head.x),
-
-            # Food Straight even
-            (dir_u and game.food.y == game.head.y) or
-            (dir_d and game.food.y == game.head.y) or
-            (dir_l and game.food.x == game.head.x) or
-            (dir_r and game.food.x == game.head.x),
-
-            #Food Right
-            (dir_u and game.food.x > game.head.x) or
-            (dir_d and game.food.x < game.head.x) or
-            (dir_l and game.food.y > game.head.y) or
-            (dir_r and game.food.y < game.head.y),
-
-            # Food Right even
-            (dir_u and game.food.x == game.head.x) or
-            (dir_d and game.food.x == game.head.x) or
-            (dir_l and game.food.y == game.head.y) or
-            (dir_r and game.food.y == game.head.y)
-
-        ]
-        return np.array(state,dtype=int)
 
     def get_state_7_vector(self,game):
         head = game.snake[0]
@@ -220,7 +196,7 @@ class Agent:
     def train_short_memory(self,state,action,reward,next_state,done):
         self.trainer.train_step(state,action,reward,next_state,done)
 
-    def get_action(self,state):
+    def get_action_orig(self,state):
         # random moves: tradeoff explotation / exploitation
         self.epsilon = 80 - self.n_game
         final_move = [0,0,0]
@@ -237,6 +213,24 @@ class Agent:
             final_move[move]=1 
         return final_move
 
+    def get_action(self,state):
+        # random moves: tradeoff explotation / exploitation
+        self.epsilon = 80 - self.n_game
+        final_move = [0,0,0]
+        if total_score < 10:
+            move = random.randint(0,2)
+            final_move[move]=1
+        else:
+            # state0 = torch.tensor(state,dtype=torch.float).cuda()
+            # prediction = self.model(state0).cuda() # prediction by model
+            state0 = torch.tensor(state, dtype=torch.float)
+            prediction = self.model(state0)  # prediction by model
+
+            move = torch.argmax(prediction).item()
+            final_move[move]=1
+        return final_move
+
+total_score = 0
 def train():
     plot_scores = []
     plot_mean_scores = []
@@ -253,16 +247,19 @@ def train():
         final_move = agent.get_action(state_old)
 
         # perform move and get new state
-        reward, done, score = game.play_step(final_move)
+        reward, done, score, loop = game.play_step(final_move)
         state_new = agent.get_state(game)
 
-        # train short memory
-        agent.train_short_memory(state_old,final_move,reward,state_new,done)
+        if not do_train_only_success:
+            # train short memory
+            agent.train_short_memory(state_old,final_move,reward,state_new,done)
 
-        #remember
-        agent.remember(state_old,final_move,reward,state_new,done)
+            #remember
+            agent.remember(state_old,final_move,reward,state_new,done)
 
         if done:
+            if do_train_only_success:
+                agent.remember(state_old, final_move, reward, state_new, done)
             # Train long memory,plot result
             game.reset()
             agent.n_game += 1
@@ -271,7 +268,10 @@ def train():
                 record = score
                 game.high_score = score
                 agent.model.save()
-            print('No:',agent.n_game,'Score:',score,'Record:',record)
+            if loop:
+                print('No:', agent.n_game, 'Score:', score, 'Record:', record, ' loop')
+            else:
+                print('No:',agent.n_game,'Score:',score,'Record:',record)
             
             plot_scores.append(score)
             total_score+=score

@@ -82,11 +82,14 @@ class SnakeGameAI:
 
         # 3. Check if game Over
         reward = 0  # eat food: +10 , game over: -10 , else: 0
-        game_over = False 
+        game_over = False
+        loop = False
         if(self.is_collision() or self.frame_iteration > 100*len(self.snake) ):
-            game_over=True
+            if self.frame_iteration > 100 * len(self.snake):
+                loop = True
+            game_over = True
             reward = REWARD_COLLISION
-            return reward,game_over,self.score
+            return reward,game_over,self.score, loop
         # 4. Place new Food or just move
         if(self.head == self.food):
             self.score+=1
@@ -101,7 +104,7 @@ class SnakeGameAI:
         self.clock.tick(SPEED)
         # 6. Return game Over and Display Score
         
-        return reward,game_over,self.score
+        return reward,game_over,self.score, loop
 
     def _update_ui(self):
         self.display.fill(BLACK)
