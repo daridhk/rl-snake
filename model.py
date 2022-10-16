@@ -5,11 +5,12 @@ import torch.nn.functional as F
 import os
 
 
-CHANNEL1 = 3
-KERNEL1 = 5
-CHANNEL2 = 6
+BOARD_SIZE = 22
+CHANNEL1 = 5
+KERNEL1 = 3
+CHANNEL2 = 16
 KERNEL2 = 5
-CHANNEL3 = 12
+CHANNEL3 = 32
 
 class Conv_QNet(nn.Module):
     def __init__(self,input_size, hidden_size, output_size):
@@ -17,7 +18,10 @@ class Conv_QNet(nn.Module):
         self.conv1 = nn.Conv2d(CHANNEL1, CHANNEL2, KERNEL1)
         self.conv2 = nn.Conv2d(CHANNEL2, CHANNEL3, KERNEL2)
 
-        self.linear1 = nn.Linear(input_size, hidden_size)
+        calc_input_size = int(((BOARD_SIZE-(KERNEL1-1))/2 - (KERNEL2-1))/2)
+        calc_input_size = calc_input_size*calc_input_size*CHANNEL3
+        # calc_input_size =
+        self.linear1 = nn.Linear(calc_input_size, hidden_size)
         self.linear2 = nn.Linear(hidden_size, output_size)
 
     def forward(self, x):
@@ -27,7 +31,7 @@ class Conv_QNet(nn.Module):
 
         x = self.conv2(x)
         x = F.relu(x)
-        # x = F.max_pool2d(x, 2)
+        x = F.max_pool2d(x, 2)
 
         if len(x.shape)>3:
             x = torch.flatten(x, 1)
@@ -119,7 +123,6 @@ class QTrainer:
         action = torch.tensor(action,dtype=torch.long)
         reward = torch.tensor(reward,dtype=torch.float)
 
-
         if(len(action.shape) == 1): # only one parameter to train , Hence convert to tuple of shape (1, x)
             #(1 , x)
             state = torch.unsqueeze(state,0)
@@ -127,7 +130,6 @@ class QTrainer:
             action = torch.unsqueeze(action,0)
             reward = torch.unsqueeze(reward,0)
             done = (done, )
-
 
         # 1. Predicted Q value with current state
         pred = self.model(state)

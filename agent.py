@@ -6,19 +6,23 @@ from snake_gameai import SnakeGameAI,Direction,Point,BLOCK_SIZE
 from model import Linear_QNet,QTrainer, Conv_QNet
 from Helper import plot
 MAX_MEMORY = 100_000
-BATCH_SIZE = 1000
+#BATCH_SIZE = 1000
+BATCH_SIZE = 100
 LR = 0.001
+MAX_CHANNEL = 5
 
 do_conv = True
-do_train_only_success = True
+do_train_only_success = False
 class Agent:
     def __init__(self):
         self.n_game = 0
         self.epsilon = 0 # Randomness
         self.gamma = 0.9 # discount rate
         self.memory = deque(maxlen=MAX_MEMORY) # popleft()
+        self.channel = deque(maxlen=MAX_CHANNEL)
+        self.is_init_channel = False
         if do_conv:
-            self.model = Conv_QNet(5*5*12, 24, 3)
+            self.model = Conv_QNet(5*5*12, 24, 4)
         else:
             self.model = Linear_QNet(7, 256, 3)
         # self.model = Linear_QNet(11,256,3)
@@ -33,9 +37,6 @@ class Agent:
         #     print(p.device,'',n)         
         # TODO: model,trainer
 
-    def pos_to_int(self, pos):
-        return int(pos.x/BLOCK_SIZE) + 1, int(pos.y/BLOCK_SIZE) + 1
-
     def get_state(self,game):
         # return self.get_state_conv(game)
         if do_conv:
@@ -43,36 +44,47 @@ class Agent:
         else:
             return self.get_state_7_vector(game)
 
-
     def get_state_conv(self,game):
+        def pos_to_int(pos):
+            return int(pos.x / BLOCK_SIZE) + 1, int(pos.y / BLOCK_SIZE) + 1
+
         # return 3x22x22 tensor
         # state = torch.zeros(3, 22, 22)
-        state = np.zeros((3, 22, 22))
-        WALL = 0
-        HEAD = 1
-        FOOD = 2
+        state = np.zeros((22, 22), dtype=float)
+        state_wall = 1.0
+        state_body = 0.75
+        state_head = 0.5
+        state_food = 0.25
 
+        # wall
         for i in range(22):
-            state[WALL][0][i] = 1
-            state[WALL][21][i] = 1
-            state[WALL][i][0] = 1
-            state[WALL][i][21] = 1
+            state[0][i] = state_wall
+            state[21][i] = state_wall
+            state[i][0] = state_wall
+            state[i][21] = state_wall
 
-        # neck to tail
-        for body in game.snake[1:]:
-            x, y = self.pos_to_int(body)
-            state[WALL][y][x] = 1
+        # snake body
+        for i, body in enumerate(game.snake):
+            x, y = pos_to_int(body)
+            if i == 0:
+                state[y][x] = state_head
+            else:
+                state[y][x] = state_body
 
-        # head and neck
-        for head in game.snake[:2]:
-            x, y = self.pos_to_int(head)
-            state[HEAD][y][x] = 1
+        # food
+        x, y = pos_to_int(game.food)
+        state[y][x] = state_food
 
-        x, y = self.pos_to_int(game.food)
-        state[FOOD][y][x] = 1
+        if not self.is_init_channel:
+            for i in range(MAX_CHANNEL-1):
+                self.channel.append(state)
+            self.is_init_channel = True
 
-        return state
-
+        self.channel.append(state)
+        states = [self.channel.popleft()]
+        for state in self.channel:
+            states = np.vstack([states, [state]])
+        return states
 
     def get_state_7_vector(self,game):
         head = game.snake[0]
@@ -213,13 +225,49 @@ class Agent:
             final_move[move]=1 
         return final_move
 
-    def get_action(self,state):
+    def get_legal_move(self, game):
+        x = game.snake[0].x
+        y = game.snake[0].y
+        legal_move = []
+        i=0
+        x1 = x+BLOCK_SIZE
+        y1 = y
+        if not game.is_collision(Point(x1,y1)):
+            legal_move.append(i)
+
+        i+=1
+        x1 = x
+        y1 = y+BLOCK_SIZE
+        if not game.is_collision(Point(x1,y1)):
+            legal_move.append(i)
+
+        i+=1
+        x1 = x-BLOCK_SIZE
+        y1 = y
+        if not game.is_collision(Point(x1,y1)):
+            legal_move.append(i)
+
+        i+=1
+        x1 = x
+        y1 = y-BLOCK_SIZE
+        if not game.is_collision(Point(x1,y1)):
+            legal_move.append(i)
+
+        return legal_move
+
+    def get_action(self,state, game):
         # random moves: tradeoff explotation / exploitation
-        self.epsilon = 80 - self.n_game
-        final_move = [0,0,0]
-        if total_score < 10:
-            move = random.randint(0,2)
-            final_move[move]=1
+        self.epsilon = 8000 - self.n_game
+        # self.epsilon = 100
+        final_move = [0,0,0,0]
+        if(random.randint(0,20000)<self.epsilon):
+        # if total_score < 10:
+            legal_move = self.get_legal_move(game)
+            if len(legal_move)<1:
+                final_move[0] = 0
+            else:
+                move = random.randint(0,len(legal_move)-1)
+                final_move[legal_move[move]]=1
         else:
             # state0 = torch.tensor(state,dtype=torch.float).cuda()
             # prediction = self.model(state0).cuda() # prediction by model
@@ -229,6 +277,25 @@ class Agent:
             move = torch.argmax(prediction).item()
             final_move[move]=1
         return final_move
+    def get_action_orig(self, state):
+        # random moves: tradeoff explotation / exploitation
+        self.epsilon = 80 - self.n_game
+        # self.epsilon = 100
+        final_move = [0, 0, 0]
+        if (random.randint(0, 200) < self.epsilon):
+            # if total_score < 10:
+            move = random.randint(0, 2)
+            final_move[move] = 1
+        else:
+            # state0 = torch.tensor(state,dtype=torch.float).cuda()
+            # prediction = self.model(state0).cuda() # prediction by model
+            state0 = torch.tensor(state, dtype=torch.float)
+            prediction = self.model(state0)  # prediction by model
+
+            move = torch.argmax(prediction).item()
+            final_move[move] = 1
+        return final_move
+
 
 total_score = 0
 def train():
@@ -244,7 +311,7 @@ def train():
         state_old = agent.get_state(game)
 
         # get move
-        final_move = agent.get_action(state_old)
+        final_move = agent.get_action(state_old, game)
 
         # perform move and get new state
         reward, done, score, loop = game.play_step(final_move)
