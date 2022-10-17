@@ -260,14 +260,16 @@ class Agent:
         self.epsilon = 8000 - self.n_game
         # self.epsilon = 100
         final_move = [0,0,0,0]
-        if(random.randint(0,20000)<self.epsilon):
+        if self.n_game<1000 or random.randint(0,20000)<self.epsilon:
         # if total_score < 10:
             legal_move = self.get_legal_move(game)
             if len(legal_move)<1:
-                final_move[0] = 0
+                final_move[0] = 1
+                # print("move blocked ************")
             else:
                 move = random.randint(0,len(legal_move)-1)
                 final_move[legal_move[move]]=1
+                # print("move "+str(legal_move[move]))
         else:
             # state0 = torch.tensor(state,dtype=torch.float).cuda()
             # prediction = self.model(state0).cuda() # prediction by model
@@ -277,13 +279,12 @@ class Agent:
             move = torch.argmax(prediction).item()
             final_move[move]=1
         return final_move
+
     def get_action_orig(self, state):
         # random moves: tradeoff explotation / exploitation
         self.epsilon = 80 - self.n_game
-        # self.epsilon = 100
         final_move = [0, 0, 0]
         if (random.randint(0, 200) < self.epsilon):
-            # if total_score < 10:
             move = random.randint(0, 2)
             final_move[move] = 1
         else:
@@ -331,6 +332,8 @@ def train():
             game.reset()
             agent.n_game += 1
             agent.train_long_memory()
+            if agent.n_game%100 == 0:
+                agent.model.save()
             if(score > record): # new High score
                 record = score
                 game.high_score = score
