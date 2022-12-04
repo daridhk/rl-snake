@@ -5,7 +5,8 @@ from collections import namedtuple
 import numpy as np
 import math
 pygame.init()
-font = pygame.font.Font('freesansbold.ttf',25)
+#font = pygame.font.Font('freesansbold.ttf',18)
+font = pygame.font.SysFont('arial', 18)
 
 # Reset 
 # Reward
@@ -24,15 +25,18 @@ class Direction(Enum):
 Point = namedtuple('Point','x , y')
 
 BLOCK_SIZE=20
-# SPEED = 40
-SPEED = 0
+SPEED = 40
+# SPEED = 0
 WHITE = (255,255,255)
+GRAY = (127, 127, 127)
 RED = (200,0,0)
 BLUE1 = (0,0,255)
 BLUE2 = (0,100,255)
 BLACK = (0,0,0)
 YELLOW1 = (255,255,0)
 YELLOW2 = (200,200,0)
+GREEN1 = (0x3c, 0xb0, 0x43)
+GREEN2 = (0x23, 0x4f, 0x1e)
 
 class SnakeGameAI:
     def __init__(self,w=400,h=400):
@@ -42,7 +46,14 @@ class SnakeGameAI:
         self.h=h
         #init display
         self.display = pygame.display.set_mode((self.w,self.h))
-        pygame.display.set_caption('Snake')
+        pygame.display.set_caption('DQN Snake Game')
+        icon_image = pygame.image.load('snake.png')
+        pygame.display.set_icon(icon_image)
+
+        self.food_image = pygame.image.load('food.jpg')
+        self.food_image = pygame.transform.scale(self.food_image, [BLOCK_SIZE, BLOCK_SIZE])
+        self.food_rect = self.food_image.get_rect()
+
         self.clock = pygame.time.Clock()
         
         self.high_score = 0
@@ -101,27 +112,36 @@ class SnakeGameAI:
         
         # 5. Update UI and clock
         # todo
-        # self._update_ui()
+        self._update_ui()
         self.clock.tick(SPEED)
         # 6. Return game Over and Display Score
         
         return reward,game_over,self.score, loop
 
     def _update_ui(self):
-        self.display.fill(BLACK)
+        self.display.fill(WHITE)
+
+        text = font.render("Score: " + str(self.score), True, GRAY)
+        self.display.blit(text,[0,19*BLOCK_SIZE])
+        text = font.render("High Score: " + str(self.high_score), True, GRAY)
+        self.display.blit(text,[100,19*BLOCK_SIZE])
+
+        radius = BLOCK_SIZE/2
         for idx, pt in enumerate(self.snake):
             if idx == 0:
-                pygame.draw.rect(self.display, YELLOW1, pygame.Rect(pt.x, pt.y, BLOCK_SIZE, BLOCK_SIZE))
-                pygame.draw.rect(self.display, YELLOW2, pygame.Rect(pt.x + 4, pt.y + 4, 12, 12))
+                # pygame.draw.rect(self.display, YELLOW1, pygame.Rect(pt.x, pt.y, BLOCK_SIZE, BLOCK_SIZE))
+                # pygame.draw.rect(self.display, YELLOW2, pygame.Rect(pt.x + 4, pt.y + 4, 12, 12))
+                pygame.draw.circle(self.display, GREEN2, [pt.x + radius, pt.y + radius], radius)
             else:
-                pygame.draw.rect(self.display, BLUE1, pygame.Rect(pt.x, pt.y, BLOCK_SIZE, BLOCK_SIZE))
-                pygame.draw.rect(self.display, BLUE2, pygame.Rect(pt.x + 4, pt.y + 4, 12, 12))
+                # pygame.draw.rect(self.display, BLUE1, pygame.Rect(pt.x, pt.y, BLOCK_SIZE, BLOCK_SIZE))
+                # pygame.draw.rect(self.display, BLUE2, pygame.Rect(pt.x + 4, pt.y + 4, 12, 12))
+                pygame.draw.circle(self.display, GREEN1, [pt.x+radius, pt.y+radius], radius)
 
-        pygame.draw.rect(self.display,RED,pygame.Rect(self.food.x,self.food.y,BLOCK_SIZE,BLOCK_SIZE))
-        text = font.render("Score: " + str(self.score), True, WHITE)
-        self.display.blit(text,[0,0])
-        text = font.render("High: " + str(self.high_score), True, WHITE)
-        self.display.blit(text,[150,0])
+        # pygame.draw.rect(self.display,RED,pygame.Rect(self.food.x,self.food.y,BLOCK_SIZE,BLOCK_SIZE))
+        self.food_rect.left = self.food.x
+        self.food_rect.top = self.food.y
+        self.display.blit(self.food_image, self.food_rect)
+
         pygame.display.flip()
 
     def _move(self,action):
