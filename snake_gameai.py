@@ -13,7 +13,7 @@ font = pygame.font.SysFont('arial', 18)
 # Play(action) -> Direction
 # Game_Iteration
 # is_collision
-REWARD_COLLISION = -11
+REWARD_COLLISION = -10
 REWARD_FOOD = 10
 
 class Direction(Enum):
@@ -25,8 +25,8 @@ class Direction(Enum):
 Point = namedtuple('Point','x , y')
 
 BLOCK_SIZE=20
-SPEED = 40
-# SPEED = 0
+#SPEED = 40
+SPEED = 0
 WHITE = (255,255,255)
 GRAY = (127, 127, 127)
 RED = (200,0,0)
@@ -39,13 +39,14 @@ GREEN1 = (0x3c, 0xb0, 0x43)
 GREEN2 = (0x23, 0x4f, 0x1e)
 
 class SnakeGameAI:
-    def __init__(self,w=400,h=400):
+    def __init__(self,w=400,h=400, q_learning_architecture=True):
     #    def __init__(self, w=640, h=480):
 
         self.w=w
         self.h=h
+        self.q_learning_architecture = q_learning_architecture
         #init display
-        self.display = pygame.display.set_mode((self.w,self.h))
+        self.display = pygame.display.set_mode((self.w,self.h+BLOCK_SIZE))
         pygame.display.set_caption('DQN Snake Game')
         icon_image = pygame.image.load('snake.png')
         pygame.display.set_icon(icon_image)
@@ -53,6 +54,7 @@ class SnakeGameAI:
         self.food_image = pygame.image.load('food.jpg')
         self.food_image = pygame.transform.scale(self.food_image, [BLOCK_SIZE, BLOCK_SIZE])
         self.food_rect = self.food_image.get_rect()
+
 
         self.clock = pygame.time.Clock()
         
@@ -88,7 +90,10 @@ class SnakeGameAI:
                 quit()
             
         # 2. Move
-        self._move(action)
+        if self.q_learning_architecture == "convolution_nn":
+            self._move(action)
+        else:
+            self._move_orig(action)
         self.snake.insert(0,self.head)
 
         # 3. Check if game Over
@@ -122,20 +127,27 @@ class SnakeGameAI:
         self.display.fill(WHITE)
 
         text = font.render("Score: " + str(self.score), True, GRAY)
-        self.display.blit(text,[0,19*BLOCK_SIZE])
+        self.display.blit(text,[0,20*BLOCK_SIZE])
         text = font.render("High Score: " + str(self.high_score), True, GRAY)
-        self.display.blit(text,[100,19*BLOCK_SIZE])
+        self.display.blit(text,[100,20*BLOCK_SIZE])
 
         radius = BLOCK_SIZE/2
+        edge = BLOCK_SIZE/4
         for idx, pt in enumerate(self.snake):
+            x = pt.x
+            y = pt.y
+            polygon = [[x+edge, y], [x+BLOCK_SIZE-edge, y], [x+BLOCK_SIZE, y+edge], [x+BLOCK_SIZE, y+BLOCK_SIZE-edge],
+                       [x+BLOCK_SIZE-edge, y+BLOCK_SIZE], [x+edge, y+BLOCK_SIZE], [x, y+BLOCK_SIZE-edge], [x, y+edge]]
             if idx == 0:
                 # pygame.draw.rect(self.display, YELLOW1, pygame.Rect(pt.x, pt.y, BLOCK_SIZE, BLOCK_SIZE))
                 # pygame.draw.rect(self.display, YELLOW2, pygame.Rect(pt.x + 4, pt.y + 4, 12, 12))
-                pygame.draw.circle(self.display, GREEN2, [pt.x + radius, pt.y + radius], radius)
+                # pygame.draw.circle(self.display, GREEN2, [pt.x + radius, pt.y + radius], radius)
+                pygame.draw.polygon(self.display, GREEN2, polygon)
             else:
                 # pygame.draw.rect(self.display, BLUE1, pygame.Rect(pt.x, pt.y, BLOCK_SIZE, BLOCK_SIZE))
                 # pygame.draw.rect(self.display, BLUE2, pygame.Rect(pt.x + 4, pt.y + 4, 12, 12))
-                pygame.draw.circle(self.display, GREEN1, [pt.x+radius, pt.y+radius], radius)
+                # pygame.draw.circle(self.display, GREEN1, [pt.x+radius, pt.y+radius], radius)
+                pygame.draw.polygon(self.display, GREEN1, polygon)
 
         # pygame.draw.rect(self.display,RED,pygame.Rect(self.food.x,self.food.y,BLOCK_SIZE,BLOCK_SIZE))
         self.food_rect.left = self.food.x

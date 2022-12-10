@@ -74,7 +74,7 @@ class Linear_QNet(nn.Module):
 
     def load(self, file_name='model.pth'):
         # todo
-        # return
+        return
         model_folder_path = '.'
         file_name = os.path.join(model_folder_path, file_name)
         if os.path.exists(file_name):

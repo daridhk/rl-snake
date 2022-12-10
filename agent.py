@@ -6,12 +6,17 @@ from snake_gameai import SnakeGameAI,Direction,Point,BLOCK_SIZE
 from model import Linear_QNet,QTrainer, Conv_QNet
 from Helper import plot
 MAX_MEMORY = 100_000
-#BATCH_SIZE = 1000
-BATCH_SIZE = 100
+
+#fully connected
+BATCH_SIZE = 1000
+#conv
+#BATCH_SIZE = 100
 LR = 0.001
 MAX_CHANNEL = 5
 
-do_conv = True
+# q_learning_architecture = "dynamic_programming"
+q_learning_architecture = "fully_connected_nn"
+# q_learning_architecture = "convolution_nn"
 do_train_only_success = False
 class Agent:
     def __init__(self):
@@ -21,7 +26,7 @@ class Agent:
         self.memory = deque(maxlen=MAX_MEMORY) # popleft()
         self.channel = deque(maxlen=MAX_CHANNEL)
         self.is_init_channel = False
-        if do_conv:
+        if q_learning_architecture == "convolution_nn":
             self.model = Conv_QNet(5*5*12, 24, 4)
         else:
             self.model = Linear_QNet(7, 256, 3)
@@ -39,7 +44,7 @@ class Agent:
 
     def get_state(self,game):
         # return self.get_state_conv(game)
-        if do_conv:
+        if q_learning_architecture == "convolution_nn":
             return self.get_state_conv(game)
         else:
             return self.get_state_7_vector(game)
@@ -207,14 +212,13 @@ class Agent:
 
     def train_short_memory(self,state,action,reward,next_state,done):
         self.trainer.train_step(state,action,reward,next_state,done)
-
-    def get_action_orig(self,state):
+    def get_action_fully_connected_nn(self, state):
         # random moves: tradeoff explotation / exploitation
         self.epsilon = 80 - self.n_game
-        final_move = [0,0,0]
-        if(random.randint(0,200)<self.epsilon):
-            move = random.randint(0,2)
-            final_move[move]=1
+        final_move = [0, 0, 0]
+        if (random.randint(0, 200) < self.epsilon):
+            move = random.randint(0, 2)
+            final_move[move] = 1
         else:
             # state0 = torch.tensor(state,dtype=torch.float).cuda()
             # prediction = self.model(state0).cuda() # prediction by model
@@ -222,7 +226,22 @@ class Agent:
             prediction = self.model(state0)  # prediction by model
 
             move = torch.argmax(prediction).item()
-            final_move[move]=1 
+            final_move[move] = 1
+        return final_move
+
+    def get_action_dynamic_programming(self, state):
+        # random moves: tradeoff explotation / exploitation
+        self.epsilon = 80 - self.n_game
+        final_move = [0, 0, 0]
+        if (random.randint(0, 200) < self.epsilon):
+            move = random.randint(0, 2)
+            final_move[move] = 1
+        else:
+            state0 = torch.tensor(state, dtype=torch.float)
+            prediction = self.model(state0)  # prediction by model
+
+            move = torch.argmax(prediction).item()
+            final_move[move] = 1
         return final_move
 
     def get_legal_move(self, game):
@@ -280,22 +299,6 @@ class Agent:
             final_move[move]=1
         return final_move
 
-    def get_action_orig(self, state):
-        # random moves: tradeoff explotation / exploitation
-        self.epsilon = 80 - self.n_game
-        final_move = [0, 0, 0]
-        if (random.randint(0, 200) < self.epsilon):
-            move = random.randint(0, 2)
-            final_move[move] = 1
-        else:
-            # state0 = torch.tensor(state,dtype=torch.float).cuda()
-            # prediction = self.model(state0).cuda() # prediction by model
-            state0 = torch.tensor(state, dtype=torch.float)
-            prediction = self.model(state0)  # prediction by model
-
-            move = torch.argmax(prediction).item()
-            final_move[move] = 1
-        return final_move
 
 
 total_score = 0
@@ -306,13 +309,16 @@ def train():
     record = 0
     agent = Agent()
     agent.model.load()
-    game = SnakeGameAI()
+    game = SnakeGameAI(400, 400, q_learning_architecture)
     while True:
         # Get Old state
         state_old = agent.get_state(game)
 
         # get move
-        final_move = agent.get_action(state_old, game)
+        if q_learning_architecture == "convolution_nn":
+            final_move = agent.get_action(state_old, game)
+        else:
+            final_move = agent.get_action_fully_connected_nn(state_old)
 
         # perform move and get new state
         reward, done, score, loop = game.play_step(final_move)
