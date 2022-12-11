@@ -1,6 +1,7 @@
 import torch 
 import random 
 import numpy as np
+import math
 from collections import deque
 from snake_gameai import SnakeGameAI,Direction,Point,BLOCK_SIZE
 from model import Linear_QNet,QTrainer, Conv_QNet
@@ -29,7 +30,8 @@ class Agent:
         if q_learning_architecture == "convolution_nn":
             self.model = Conv_QNet(5*5*12, 24, 4)
         else:
-            self.model = Linear_QNet(7, 256, 3)
+            self.model = Linear_QNet(9, 64, 3)
+            # self.model = Linear_QNet(7, 256, 3)
         # self.model = Linear_QNet(11,256,3)
 
         # self.model = Linear_QNet(12, 256, 3)
@@ -103,6 +105,12 @@ class Agent:
         dir_u = game.direction == Direction.UP
         dir_d = game.direction == Direction.DOWN
 
+        food_dist_x = abs(float(game.food.x - game.head.x) / (20.0 * BLOCK_SIZE))
+        food_dist_y = abs(float(game.food.y - game.head.y) / (20.0 * BLOCK_SIZE))
+        food_dist = (food_dist_x+food_dist_y)/2
+        head_dist_x = abs(float(10 - game.head.x) / (20.0 * BLOCK_SIZE))
+        head_dist_y = abs(float(10 - game.head.y) / (20.0 * BLOCK_SIZE))
+        head_dist = (head_dist_x+head_dist_y)/2
         state = [
             # Danger Straight
             (dir_u and game.is_collision(point_u))or
@@ -144,10 +152,12 @@ class Agent:
             (dir_u and game.food.x == game.head.x) or
             (dir_d and game.food.x == game.head.x) or
             (dir_l and game.food.y == game.head.y) or
-            (dir_r and game.food.y == game.head.y)
+            (dir_r and game.food.y == game.head.y),
 
+            food_dist,
+            head_dist
         ]
-        return np.array(state,dtype=int)
+        return np.array(state,dtype=float)
 
     def get_state_original(self,game):
         head = game.snake[0]
@@ -214,7 +224,8 @@ class Agent:
         self.trainer.train_step(state,action,reward,next_state,done)
     def get_action_fully_connected_nn(self, state):
         # random moves: tradeoff explotation / exploitation
-        self.epsilon = 80 - self.n_game
+        # self.epsilon = 400 - self.n_game
+        self.epsilon = 4
         final_move = [0, 0, 0]
         if (random.randint(0, 200) < self.epsilon):
             move = random.randint(0, 2)

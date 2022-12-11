@@ -47,7 +47,7 @@ class SnakeGameAI:
         self.q_learning_architecture = q_learning_architecture
         #init display
         self.display = pygame.display.set_mode((self.w,self.h+BLOCK_SIZE))
-        pygame.display.set_caption('DQN Snake Game')
+        pygame.display.set_caption('Snake Game')
         icon_image = pygame.image.load('snake.png')
         pygame.display.set_icon(icon_image)
 
@@ -100,8 +100,8 @@ class SnakeGameAI:
         reward = 0  # eat food: +10 , game over: -10 , else: 0
         game_over = False
         loop = False
-        if(self.is_collision() or self.frame_iteration > 1000*len(self.snake) ):
-            if self.frame_iteration > 1000 * len(self.snake):
+        if(self.is_collision() or self.frame_iteration > 200*len(self.snake) ):
+            if self.frame_iteration > 200 * len(self.snake):
                 loop = True
             game_over = True
             reward = REWARD_COLLISION

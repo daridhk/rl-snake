@@ -60,8 +60,6 @@ class Linear_QNet(nn.Module):
         super().__init__()
         self.linear1 = nn.Linear(input_size,hidden_size)
         self.linear2 = nn.Linear(hidden_size, output_size)
-        # self.linear1 = nn.Linear(input_size, hidden_size).cuda()
-        # self.linear2 = nn.Linear(hidden_size, output_size).cuda()
 
     def forward(self, x):
         x = F.relu(self.linear1(x))
